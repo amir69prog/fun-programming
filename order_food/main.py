@@ -1,108 +1,140 @@
-menu = [
-    {
-        'item_id':1,
-        'title':'Green apple bubble milk tea',
-        'price':7.99
-    },
-    {
-        'item_id':2,
-        'title':'Passion fruit bubble milk green tea',
-        'price':6.99
-    },
-    {
-        'item_id':3,
-        'title':'oyster omelette',
-        'price':12.99
-    },
-    {
-        'item_id':4,
-        'title':'Stinky tofu',
-        'price':10.99
-    },
-    {
-        'item_id':5,
-        'title':'Braised pork on rice with tea egg',
-        'price':9.99
-    },
-]
+from enum import Enum
+
+from colorama import Fore
+
+from resturant import Menu, Item, Order
 
 
-order = []
-
-print('Welcome to Mr.Chu\'s Grottol')
-print('Menu:')
-
-for food in menu:
-    print(f"{food['item_id']}. {food['title']} ${food['price']}")
-print('6. check out')
-
-def get_title_and_price_of_food(item_id):
-    # return the food by item_id
-    food = list(filter(lambda food:food['item_id'] == item_id, menu))[0]
-    return food['title'], food['price']
+class Actions(Enum):
+    CONTINUE = 1
+    CALCULATE = 2
+    EXIT = 3
 
 
-def get_order_subtotal(order):
-    prices = list(map(lambda item:item['price'] * item['count'], order))
-    return sum(prices)
+class ActionsPayment(Enum):
+    PAYMENT = 1
+    EXIT = 2
 
-def generate_tax_of_order(subtotal):
-    return subtotal * 13 / 100
 
-while True:
+def init_menu() -> Menu:
+    """ Initital the menu of the resturant """
+    
+    menu = Menu()
+
+    # adding items
+    menu.add_item(Item(1, 'Green apple bubble milk tea', 7.99))
+    menu.add_item(Item(2, 'Passion fruit bubble milk green tea', 6.99))
+    menu.add_item(Item(3, 'oyster omelette', 12.99))
+    menu.add_item(Item(4, 'Stinky tofu', 10.99))
+    menu.add_item(Item(5, 'Braised pork on rice with tea egg', 9.99))
+    
+    return menu
+
+
+def calculate(order: Order) -> None:
+    """ Calculate process of the order """
+    
+    # show order_items
+    order.show_order_items()
+
+    # calculates
+    order.get_subtotal()
+    order.get_tax()
+    order.get_final_total()
+
+    # show results
+    order.show_payment_info()
+    
     try:
-        item_id = int(input('Select item you want to buy(just enter the number): '))
-        if item_id <= 0 or item_id > 6:
-            continue
-        elif item_id != 6:
-            while True:
-                count = int(input('How many you want? '))
-                if count <= 0:
-                    continue
-                else:
-                    break
+        action = int(input(Fore.GREEN + '1. Payment   2. Exit\n>>> '))
+        if action == ActionsPayment.PAYMENT.value:
+            payment(order)
+        elif action == ActionsPayment.EXIT.value:
+            print(Fore.CYAN + 'See you later.')
+            return None
+    except ValueError as err:
+        print(Fore.RED + str(err))
+        return None
+
+    return order
+
+
+def create_order(menu: Menu) -> Order:
+    """ Creating order """
+    order = Order()
+    
+    while True: 
+        try:
+            item_id = int(input(Fore.LIGHTYELLOW_EX + 'Select item you want to buy(just enter the number): '))
             
-            # append to order
-            # get the food by item_id
-            title, price = get_title_and_price_of_food(item_id)
-            order.append({'title':title,'price':price,'count':count})
-        elif item_id == 6:
-            # paymet stuff
-            if order:
-                # payment do
-                for item in order:
-                    print(f"{item['count']} x {item['title']} ${item['price']}")
-                subtotal = get_order_subtotal(order)
-                tax = generate_tax_of_order(subtotal)
-                final_total = subtotal + tax
-                print(f'SubTotal : {subtotal}')
-                print(f'Tax : {tax}')
-                print(f'Total : {final_total}')
-                break
-            else:
-                print('Goodbye for ever')
-                break
-    except ValueError:
-        continue
+            # get the item instance
+            item = menu.find_item_by_id(item_id)
+            if item is None:
+                raise ValueError(f'Sorry! item does not found.')
+            
+            # print the item in the terminal
+            item.print()
 
+            # ask the count
+            count = int(input(Fore.CYAN + 'How many you want: '))
+            if count <= 0:
+                raise ValueError(f'Invalid count {count}')
+            
+            # add to order
+            order.add(item, count)
 
-if order:
-    try:
-        retires = 3
-        while retires > 0:
-            amount = int(input('Enter amount of your payment: '))
-            if amount < final_total:
-                retires -= 1
-                if retires != 0:
-                    print(f'Not enough payment. please try again({retires} retires left)')
-            else:
-                change = amount - final_total
-                if change > 0:
-                    print(f'Here your change {change}')
-                print('Thank you')
+            # what's next
+            action = int(input(Fore.GREEN + '1: Continue   2: Pay   3: Exit\n>>> ')) 
+            if action == Actions.CONTINUE.value:
+                continue
+            elif action == Actions.CALCULATE.value:
+                calculate(order)
+                break
+            elif action == Actions.EXIT.value:
+                print(Fore.LIGHTYELLOW_EX + 'See you later.')
                 break
 
-        if retires == 0:
-            print('Come back later.')
-    except ValueError:
-        pass
+        except ValueError as err: 
+            print(Fore.RED + str(err))
+            break 
+
+
+def payment(order: Order) -> None:
+    """ Payment process of order """
+    is_paid = False
+    if order.final_total != .0:
+        try:
+            attmept = 3
+            while attmept > 0:
+                amount = int(input(Fore.WHITE + 'Enter amount of your payment: '))
+                if amount < order.final_total:
+                    attmept -= 1
+                    if attmept != 0:
+                        print(Fore.RED + f'Not enough payment. please try again({attmept} attmept left)')
+                else:
+                    change = amount - order.final_total
+                    if change > 0:
+                        print(Fore.GREEN + f'Here your change {change}')
+                    print(Fore.GREEN + 'Thank you')
+                    is_paid = True
+                    break
+
+            if not is_paid:
+                print('Come back later.')
+        except ValueError:
+            pass
+
+
+def main() -> None:
+    """ Main """
+    menu = init_menu()
+    
+    print('Menu: ')
+    menu.show()
+    
+    # create order
+    create_order(menu)
+
+
+if __name__ == '__main__':
+    main()
